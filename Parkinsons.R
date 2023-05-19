@@ -1,5 +1,11 @@
+pathout <- "D:/CDS501/parkinsons_telemonitoring"
+filename <- paste(pathout, '/cleaned.csv', sep = '')
+setwd(pathout)
+
 library(tidyverse)
 library(data.table)
+library(ggplot2)
+library(reshape2)
 df <- read.csv("parkinsons.csv")
 
 dim(df)
@@ -15,89 +21,33 @@ names(df) <- tolower(names(df))
 names(df)
 
 #Renaming all columns for better handling
-setnames(df, old = c('jitter...','jitter.abs.','jitter.rap','jitter.ppq5','jitter.ddp','shimmer.db.','shimmer.apq3','shimmer.apq5','shimmer.apq11','shimmer.dda'), new = c('jitter','jitter_abs','jitter_rap','jitter_ppq5','jitter_ddp','shimmer_db','shimmer_apq3','shimmer_apq5','shimmer_apq11','shimmer_dda'))
+setnames(df, old = c('jitter...','jitter.abs.','jitter.rap','jitter.ppq5','jitter.ddp','shimmer.db.','shimmer.apq3','shimmer.apq5','shimmer.apq11','shimmer.dda'), 
+         new = c('jitter','jitter_abs','jitter_rap','jitter_ppq5','jitter_ddp','shimmer_db','shimmer_apq3','shimmer_apq5','shimmer_apq11','shimmer_dda'))
 
 View(df)
 glimpse(df)
 y <- df[6:21]
 
-#Initializing DF to Null
-parkinson_data_clean <- NULL
-
-
-<<<<<<< HEAD
 #Plotting with outliers
 boxplot.default(df[,11:16])
-
 
 #Plotting without outliers
 boxplot.default(df_Shimmer[,11:16])
 
+#Initializing DF to NA
+parkinson_data_clean <- NA
 
-#######################################################################
-#Jitter Data Outliers processing
-quartiles_Jitter <- quantile(df$jitter, probs=c(.25, .75), na.rm = TRUE)
-IQR_Jitter <- IQR(df$jitter)
-Lower_Jitter <- quartiles_Jitter[1] - 1.5*IQR_Jitter
-Upper_Jitter <- quartiles_Jitter[2] + 1.5*IQR_Jitter
-
-#Assigning Jitter data without Outliers to df_Jitter
-df_Jitter <- subset(df, df$jitter > Lower_Jitter & df$jitter < Upper_Jitter)
-
-#See outliers value
-df_JitterLower <- subset(df, df$jitter < Lower_Jitter)
-df_JitterUpper <- subset(df, df$jitter > Upper_Jitter)
-
-View(df_JitterLower)
-View(df_JitterUpper)
-range(df_JitterLower$jitter) #Lower Outlier Jitter Range
-range(df_JitterUpper$jitter) #Upper Outlier Jitter Range
-
-range (df_Jitter$jitter) #Jitter without Outlier Range
-
-#Plotting Jitter with outliers
-boxplot(df[,6:10])
-
-#Plotting Jitter without outliers  ERROR
-boxplot.default(df_Jitter[,6:10])
-
-
-y <- df[6:21]
-
-#Initializing DF to Null
-parkinson_data_clean <- NULL
-
-for (x in y){
-  remove_outliers <- function(x, na.rm = TRUE, ...) {
-    qnt <- quantile(x, probs=c(.25, .75), na.rm = na.rm, ...)
-    H <- 1.5 * IQR(x, na.rm = na.rm)
-    x[x < (qnt[1] - H)] <- NA
-    x[x > (qnt[2] + H)] <- NA
-    x
-  }
-  
-  parkinson_data_clean <- rbind(parkinson_data_clean,apply(df[, 0:21], 2, remove_outliers))
-  parkinson_data_clean <- na.omit(parkinson_data_clean)
-  
-}
-
-parkinson_data_clean <- as.data.frame(parkinson_data_clean)
-parkinson_data_clean <- distinct(parkinson_data_clean)
-
-boxplot(parkinson_data_clean[6:10])
-boxplot(parkinson_data_clean[11:16])
-boxplot(parkinson_data_clean[16:21])
-=======
 #Looping through all attributes to remove outliers, combined the tables and eliminate dupes
 for (x in y){
   remove_outliers <- function(x, na.rm = TRUE, ...) {
-    qnt <- quantile(x, probs=c(.25, .75), na.rm = na.rm, ...)
-    H <- 1.5 * IQR(x, na.rm = na.rm)
-    x[x < (qnt[1] - H)] <- NA
-    x[x > (qnt[2] + H)] <- NA
-    x
+    # qnt <- quantile(x, probs=c(.25, .75), na.rm = na.rm, ...)
+    # H <- 1.5 * IQR(x, na.rm = na.rm)
+    # x[x < (qnt[1] - H)] <- NA
+    # x[x > (qnt[2] + H)] <- NA
+    # x
   }
   
+    
   parkinson_data_clean <- rbind(parkinson_data_clean,apply(df[, 0:21], 2, remove_outliers))
   parkinson_data_clean <- na.omit(parkinson_data_clean)
   
@@ -105,10 +55,15 @@ for (x in y){
 
 parkinson_data_clean <- as.data.frame(parkinson_data_clean)
 parkinson_data_clean <- distinct(parkinson_data_clean)
+
+parkinson_data_clean
+
+write.csv(parkinson_data_clean, filename, row.names = FALSE)
 
 #Comparing cleaned and uncleaned data for the attributes
 boxplot(parkinson_data_clean[6:10])
 boxplot(df[6:10])
+
 
 #Comparing cleaned and uncleaned data for the attributes
 boxplot(parkinson_data_clean[11:16])
@@ -116,11 +71,85 @@ boxplot(df[11:16])
 
 
 #Comparing cleaned and uncleaned data for the attributes
-boxplot(parkinson_data_clean[16:21])
-boxplot(df[16:21])
+boxplot(parkinson_data_clean[17:21])
+boxplot(df[17:21])
 
 
->>>>>>> e3ae3b46d4d942b4e1fc308786aa6838be8dbb0b
+df17_1 <- df[17]
+colnames(df17_1) <- c('uncleaned_nhr')
+
+df17_2 <- parkinson_data_clean[17]
+colnames(df17_2) <- c('nhr')
+
+
+boxplot(df17_compare)
+
+data_mod <- melt(df17_compare, measure.vars = c('uncleaned_nhr','nhr'))
+
+p <- ggplot(data_mod) + geom_boxplot(aes(y=value, color=variable),outlier.shape=8)
+
+print(p+coord_flip())
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # ###################################################################### UNUSED CODE
 # #Shimmers Data Outliers processing
