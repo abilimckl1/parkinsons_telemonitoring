@@ -7,67 +7,111 @@ df <- read.csv("parkinsons.csv")
 
 dim(df)
 str(df)
-summary(df)
+summary(parkinson_data_clean)
 #Dropping Subject column
 df <- subset (df, select = -subject.)
 df <- distinct(df)
-df1 <- unique(df)
 
 #Lowercase all columns
 names(df) <- tolower(names(df))
 names(df)
 
+df <- tibble::rowid_to_column(df, 'uid')
+
 #Renaming all columns for better handling
-setnames(df, old = c('jitter...','jitter.abs.','jitter.rap','jitter.ppq5','jitter.ddp','shimmer.db.','shimmer.apq3','shimmer.apq5','shimmer.apq11','shimmer.dda'), new = c('jitter','jitter_abs','jitter_rap','jitter_ppq5','jitter_ddp','shimmer_db','shimmer_apq3','shimmer_apq5','shimmer_apq11','shimmer_dda'))
+setnames(df, old = c('jitter...','jitter.abs.','jitter.rap','jitter.ppq5','jitter.ddp','shimmer.db.','shimmer.apq3','shimmer.apq5','shimmer.apq11','shimmer.dda'), 
+         new = c('jitter','jitter_abs','jitter_rap','jitter_ppq5','jitter_ddp','shimmer_db','shimmer_apq3','shimmer_apq5','shimmer_apq11','shimmer_dda'))
 
 View(df)
 glimpse(df)
-y <- df[6:21]
 
-#Initializing DF to Null
-parkinson_data_clean <- NULL
 
-for (x in y){
-  remove_outliers <- function(x, na.rm = TRUE, ...) {
-    qnt <- quantile(x, probs=c(.25, .75), na.rm = na.rm, ...)
-    H <- 1.5 * IQR(x, na.rm = na.rm)
-    x[x < (qnt[1] - H)] <- NA
-    x[x > (qnt[2] + H)] <- NA
-    x
-  }
-  
-  parkinson_data_clean <- rbind(parkinson_data_clean,apply(df[, 0:21], 2, remove_outliers))
-  parkinson_data_clean <- na.omit(parkinson_data_clean)
-  
-}
+#Exporting df to csv for checking (rmb to change file name to prevent overwrite)
 
-parkinson_data_clean <- as.data.frame(parkinson_data_clean)
-parkinson_data_clean <- distinct(parkinson_data_clean)
+filename <- paste(pathout, '/dataframe1.csv', sep = '')
+write.csv(df, filename, row.names = FALSE)
 
-boxplot(parkinson_data_clean[6:10])
-boxplot(parkinson_data_clean[11:16])
-boxplot(parkinson_data_clean[16:21])
+#Plotting with outliers
+boxplot.default(df[,12:17])
+
+
+#Initializing DFs to NA
+df2 <- NA
+
+##First Round data treatment : Eliminate measurement error in outliers##
+y <- df[7:22]
 #Looping through all attributes to remove outliers, combined the tables and eliminate dupes
 for (x in y){
   remove_outliers <- function(x, na.rm = TRUE, ...) {
     qnt <- quantile(x, probs=c(.25, .75), na.rm = na.rm, ...)
     H <- 1.5 * IQR(x, na.rm = na.rm)
-    x[x < (qnt[1] - H)] <- NA
-    x[x > (qnt[2] + H)] <- NA
+    x[x < (qnt[1] - H)] <- -1
+    x[x > (qnt[2] + H)] <- 1
     x
   }
   
-  parkinson_data_clean <- rbind(parkinson_data_clean,apply(df[, 0:21], 2, remove_outliers))
+  df2 <- apply(df[, 7:22], 2, remove_outliers)   #exclude the first 6 columns when applying function
+  df2 <- na.omit(df2)
+  
+}
+
+#converge the columns in a df together before processing
+df2 <- as.data.frame(df2)
+df2 <- cbind(df[1:6],df2)
+df2 <- distinct(df2)
+
+#tallying up the total outliers
+df2$outliers <- rowSums(df2[,7:22] == -1 | df2[,7:22] == 1)
+
+#removing rows with outliers more than 7
+df2 <- df2[df2$outliers<7,]
+
+# Restoring remaining outliers value (-1 or 1) to their original value
+# Check if uid column exists in df
+
+parkinson_data_clean <- NA
+
+if ("uid" %in% colnames(df2)) {
+  parkinson_data_clean <- df2[df2$uid %in% df$uid, ] # Filter rows from df2 where uid exists in df
+}
+
+#Exporting first treatment to csv for checking (rmb to change file name to prevent overwrite)
+
+filename <- paste(pathout, '/cleanedremoved1.csv', sep = '')
+write.csv(df2, filename, row.names = FALSE)
+
+##Second round data treatment : to impute remaining outliers##
+
+# Replacing outliers value with their mean quartile value
+for (x in y){
+  impute_outliers <- function(x, na.rm = TRUE, ...) {
+    qnt <- quantile(x, probs=c(.25, .75), na.rm = na.rm, ...)
+    H <- 1.5 * IQR(x, na.rm = na.rm)
+    x[x < (qnt[1] - H)] <- qnt[1] - H
+    x[x > (qnt[2] + H)] <- qnt[2] + H
+    x
+  }
+  parkinson_data_clean <- apply(parkinson_data_clean[, 0:22], 2, impute_outliers) 
   parkinson_data_clean <- na.omit(parkinson_data_clean)
   
 }
 
+
 parkinson_data_clean <- as.data.frame(parkinson_data_clean)
 parkinson_data_clean <- distinct(parkinson_data_clean)
 
+# Removing columns if unnecessary / adding if necessary
+parkinson_data_clean <- subset (parkinson_data_clean, select = -uid) #dont run if want to cross check uid
+parkinson_data_clean <- cbind(parkinson_data_clean, df2[23]) #run if want to include outlier count
+
+
+#Exporting second treatment to csv for checking (rmb to change file name to prevent overwrite)
+filename <- paste(pathout, '/cleanedimputed3.csv', sep = '')
+write.csv(parkinson_data_clean, filename, row.names = FALSE)
+
 #Comparing cleaned and uncleaned data for the attributes
 boxplot(parkinson_data_clean[6:10])
-boxplot(df[6:10])
+boxplot(df[7:11])
 
 #Comparing cleaned and uncleaned data for the attributes
 boxplot(parkinson_data_clean[11:16])

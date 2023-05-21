@@ -87,12 +87,10 @@ write.csv(df2, filename, row.names = FALSE)
 # Replacing outliers value with their mean quartile value
 for (x in y){
   impute_outliers <- function(x, na.rm = TRUE, ...) {
-    qnt <- quantile(x, probs=c(0, .25, .75, 1), na.rm = na.rm, ...)
+    qnt <- quantile(x, probs=c(.25, .75), na.rm = na.rm, ...)
     H <- 1.5 * IQR(x, na.rm = na.rm)
-    mean_qnt1 <- mean(x[x >= qnt[1] & x <= qnt[2]], na.rm = TRUE)
-    mean_qnt2 <- mean(x[x >= qnt[3] & x <= qnt[4]], na.rm = TRUE)
-    x[x < (qnt[1] - H)] <- mean_qnt1
-    x[x > (qnt[2] + H)] <- mean_qnt2
+    x[x < (qnt[1] - H)] <- qnt[1] - H
+    x[x > (qnt[2] + H)] <- qnt[2] + H
     x
   }
   parkinson_data_clean <- apply(parkinson_data_clean[, 0:22], 2, impute_outliers) 
