@@ -1,4 +1,4 @@
-pathout <- "D:/CDS501/parkinsons_telemonitoring"
+pathout <- "C:/Users/Mackhem/Desktop/CDS501/parkinsons_telemonitoring"
 setwd(pathout)
 
 library(tidyverse)
@@ -9,7 +9,7 @@ df <- read.csv("parkinsons.csv")
 
 dim(df)
 str(df)
-summary(parkinson_data_clean)
+summary(df)
 #Dropping Subject column
 df <- subset (df, select = -subject.)
 df <- distinct(df)
@@ -41,21 +41,25 @@ boxplot.default(df[,12:17])
 df2 <- NA
 
 ##First Round data treatment : Eliminate measurement error in outliers##
-y <- df[7:22]
-#Looping through all attributes to remove outliers, combined the tables and eliminate dupes
+remove_outliers <- function(x, na.rm = TRUE, ...) {
+  qnt <- quantile(x, probs=c(.25, .75), na.rm = na.rm, ...)
+  H <- 1.5 * IQR(x, na.rm = na.rm)
+  x[x < (qnt[1] - H)] <- -1 
+  x[x > (qnt[2] + H)] <- 1
+  x
+}
+
+#Looping through all attributes to mark outliers, 1 = upper bound outlier, -1 = lower bound outlier
+#Once done, combined the tables and eliminate dupes
 for (x in y){
-  remove_outliers <- function(x, na.rm = TRUE, ...) {
-    qnt <- quantile(x, probs=c(.25, .75), na.rm = na.rm, ...)
-    H <- 1.5 * IQR(x, na.rm = na.rm)
-    x[x < (qnt[1] - H)] <- -1
-    x[x > (qnt[2] + H)] <- 1
-    x
-  }
-  
   df2 <- apply(df[, 7:22], 2, remove_outliers)   #exclude the first 6 columns when applying function
   df2 <- na.omit(df2)
   
 }
+
+
+df2 <- apply(df[, 7:22], 2, remove_outliers)   #exclude the first 6 columns when applying function
+df2 <- na.omit(df2)
 
 #converge the columns in a df together before processing
 df2 <- as.data.frame(df2)
@@ -79,12 +83,12 @@ if ("uid" %in% colnames(df2)) {
 
 #Exporting first treatment to csv for checking (rmb to change file name to prevent overwrite)
 
-filename <- paste(pathout, '/cleanedremoved1.csv', sep = '')
+filename <- paste(pathout, '/cleanedremoved111.csv', sep = '')
 write.csv(df2, filename, row.names = FALSE)
 
 ##Second round data treatment : to impute remaining outliers##
 
-# Replacing outliers value with their mean quartile value
+# Replacing outliers value with their upper/lower bound value
 for (x in y){
   impute_outliers <- function(x, na.rm = TRUE, ...) {
     qnt <- quantile(x, probs=c(.25, .75), na.rm = na.rm, ...)

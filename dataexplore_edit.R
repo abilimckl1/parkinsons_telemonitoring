@@ -1,3 +1,6 @@
+pathout <- "C:/Users/Mackhem/Desktop/CDS501/parkinsons_telemonitoring"
+setwd(pathout)
+
 library(tidyverse)
 library(ggplot2)
 library(plotly)
@@ -7,7 +10,7 @@ df <- read.csv("parkinsons.csv")
 
 dim(df)
 str(df)
-summary(parkinson_data_clean)
+summary(df)
 #Dropping Subject column
 df <- subset (df, select = -subject.)
 df <- distinct(df)
@@ -39,21 +42,18 @@ boxplot.default(df[,12:17])
 df2 <- NA
 
 ##First Round data treatment : Eliminate measurement error in outliers##
-y <- df[7:22]
 #Looping through all attributes to remove outliers, combined the tables and eliminate dupes
-for (x in y){
-  remove_outliers <- function(x, na.rm = TRUE, ...) {
-    qnt <- quantile(x, probs=c(.25, .75), na.rm = na.rm, ...)
-    H <- 1.5 * IQR(x, na.rm = na.rm)
-    x[x < (qnt[1] - H)] <- -1
-    x[x > (qnt[2] + H)] <- 1
-    x
-  }
-  
-  df2 <- apply(df[, 7:22], 2, remove_outliers)   #exclude the first 6 columns when applying function
-  df2 <- na.omit(df2)
-  
+remove_outliers <- function(x, na.rm = TRUE, ...) {
+  qnt <- quantile(x, probs=c(.25, .75), na.rm = na.rm, ...)
+  H <- 1.5 * IQR(x, na.rm = na.rm)
+  x[x < (qnt[1] - H)] <- -1 #mark -1 for lower boundary outlier
+  x[x > (qnt[2] + H)] <- 1 #mark 1 for upper boundary outlier
+  x
 }
+
+df2 <- apply(df[, 7:22], 2, remove_outliers)   #exclude the first 6 columns when applying function
+df2 <- na.omit(df2)
+  
 
 #converge the columns in a df together before processing
 df2 <- as.data.frame(df2)
@@ -83,18 +83,17 @@ write.csv(df2, filename, row.names = FALSE)
 ##Second round data treatment : to impute remaining outliers##
 
 # Replacing outliers value with their mean quartile value
-for (x in y){
-  impute_outliers <- function(x, na.rm = TRUE, ...) {
-    qnt <- quantile(x, probs=c(.25, .75), na.rm = na.rm, ...)
-    H <- 1.5 * IQR(x, na.rm = na.rm)
-    x[x < (qnt[1] - H)] <- qnt[1] - H
-    x[x > (qnt[2] + H)] <- qnt[2] + H
-    x
-  }
-  parkinson_data_clean <- apply(parkinson_data_clean[, 0:22], 2, impute_outliers) 
-  parkinson_data_clean <- na.omit(parkinson_data_clean)
-  
+
+impute_outliers <- function(x, na.rm = TRUE, ...) {
+  qnt <- quantile(x, probs=c(.25, .75), na.rm = na.rm, ...)
+  H <- 1.5 * IQR(x, na.rm = na.rm)
+  x[x < (qnt[1] - H)] <- qnt[1] - H #replacing lower bound outlier with lower bound
+  x[x > (qnt[2] + H)] <- qnt[2] + H #replacing upper bound outlier with upper bound
+  x
 }
+
+parkinson_data_clean <- apply(parkinson_data_clean[, 0:22], 2, impute_outliers) 
+parkinson_data_clean <- na.omit(parkinson_data_clean)
 
 
 parkinson_data_clean <- as.data.frame(parkinson_data_clean)
@@ -108,6 +107,8 @@ parkinson_data_clean <- cbind(parkinson_data_clean, df2[23]) #run if want to inc
 #Exporting second treatment to csv for checking (rmb to change file name to prevent overwrite)
 filename <- paste(pathout, '/cleanedimputed3.csv', sep = '')
 write.csv(parkinson_data_clean, filename, row.names = FALSE)
+
+summary(parkinson_data_clean)
 
 #Comparing cleaned and uncleaned data for the attributes
 boxplot(parkinson_data_clean[6:10])
